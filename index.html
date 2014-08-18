@@ -116,12 +116,8 @@
         <script type="text/javascript" src="js/saiku/plugins/Statistics/plugin.js" defer></script>
         <script type="text/javascript" src="js/saiku/plugins/I18n/plugin.js" defer></script>
         <script type="text/javascript" src="js/saiku/plugins/BIServer/plugin.js" defer></script>
-        <script type="text/javascript" src="js/saiku/plugins/Buckets/plugin.js" defer></script> 
-        
-        <!-- FILTER PLUGIN disabled by default       
-        <script type="text/javascript" src="js/saiku/plugins/filters/filterconfig.js" defer></script>
-        <script type="text/javascript" src="js/saiku/plugins/filters/plugin.js" defer></script>        
-        -->
+        <script type="text/javascript" src="js/saiku/plugins/Buckets/plugin.js" defer></script>        
+                    
             <script type="text/javascript" src="js/saiku/plugins/CCC_Chart/def.js"></script>
             <script type="text/javascript" src="js/saiku/plugins/CCC_Chart/protovis.js"></script>
             <script type="text/javascript" src="js/saiku/plugins/CCC_Chart/protovis-msie.js"></script>
@@ -496,9 +492,15 @@
 
         <script type="text/x-jquery-tmpl" id="template-selections">
             <div class="available_selections">
-            <label for="filter_selections" class="i18n">Search:</label> &nbsp;<input name="'filter_selections" id="filter_selections" type="text" class="filterbox" /> <br />
+                <label for="filter_selections" class="i18n">Search:</label> &nbsp;<input name="filter_selections" id="filter_selections" type="text" class="filterbox" /> <br />
+                <div id="date_range_selection_div" style="visibility:hidden">
+                    <label for="from_date_field" class="i18n">From:</label> &nbsp;<input name="from_date_field" id="from_date_field" type="date" class="filterbox" />
+                    <label for="to_date_field" class="i18n">To:</label> &nbsp;<input name="to_date_field" id="to_date_field" type="date" class="filterbox" />
+                    <a class="form_button" href="#applyDateRangeFilter" id="apply_date_range_filter">Apply Filter</a>
+                    <br />
+                </div>
                 <span class="i18n">Available members:</span><br/>
-                    <select multiple="true" size="17" disabled></select>
+                <select multiple="true" size="16" disabled></select>
             </div>
             <div class="selection_buttons">
                 <a class="form_button" href="#move_selection" id="add_members">&nbsp;&gt;&nbsp;</a><br><br>
@@ -507,8 +509,11 @@
                 <a class="form_button" href="#move_selection" id="remove_members">&nbsp;&lt;&nbsp;</a>
             </div>
             <div class="used_selections">
+                <div>
+                    <br />
+                </div>
                 <span class="i18n">Used members:</span><br/>
-                    <select multiple="true" size="17" disabled></select>
+                    <select multiple="true" size="16" disabled></select>
             </div>
             <div class="updown_buttons">
                 <a class="form_button" href="#up" id="up_members">&nbsp;&uarr;&nbsp;</a><br><br>
@@ -517,7 +522,7 @@
 
             <div class="options">
                 <input name="show_unique" id="show_unique" type="checkbox" /><label for="show_unique" class="i18n">Show Unique Names</label><br />
-                <input name="use_result" id="use_result" type="checkbox" /><label for="use_result" class="i18n">Use Result</label>
+                <input name="use_result" id="use_result" type="checkbox" /><label for="use_result" class="i18n">Use Result</label><br />
             </div>
         </script>
         <script type="text/x-jquery-tmpl" id="template-permissions">

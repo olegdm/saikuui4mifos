@@ -568,13 +568,7 @@ var Workspace = Backbone.View.extend({
             return this.no_results(args);
         }
 
-        var chour = new Date().getHours();
-        if (chour < 10) chour = "0" + chour;
-
-        var cminutes = new Date().getMinutes();
-        if (cminutes < 10) cminutes = "0" + cminutes;
-        
-        var cdate = chour + ":" + cminutes;
+        var cdate = new Date().getHours() + ":" + new Date().getMinutes();
         var runtime = args.data.runtime != null ? (args.data.runtime / 1000).toFixed(2) : "";
         /*
         var info = '<b>Time:</b> ' + cdate 
@@ -593,17 +587,16 @@ var Workspace = Backbone.View.extend({
     },
 
     block: function(message) {
-        /* Most probably not needed anymore. Seems ok now with fix #192
         if (isIE) {
             var $msg = $("<span>" + message + "</span>");
             $msg.find('.processing_image').removeClass('processing_image');
             Saiku.ui.block($msg.html());
-        }
-        */
+        } else {
             $(this.el).block({ 
                 message: '<span class="saiku_logo" style="float:left">&nbsp;&nbsp;</span> ' + message
             });
             Saiku.i18n.translate();
+        }
     },
 
     unblock: function() {
@@ -611,7 +604,6 @@ var Workspace = Backbone.View.extend({
             Saiku.ui.unblock();
         } else {
             $(this.el).unblock();
-            Saiku.ui.unblock();
         }
     },
 
@@ -634,5 +626,77 @@ var Workspace = Backbone.View.extend({
     
     error: function(args) {
         this.processing.html(safe_tags_replace(args.data.error)).show();
+    },
+
+    levelPriorities: {
+        '(All)': 0,
+        Year: 9,
+        HalfYear: 8,
+        Quarter: 7,
+        Month: 6,
+        Week: 5,
+        Day: 4,
+        Hour: 3,
+        Minute: 2,
+        Second: 1
+    },
+
+    load_dimension_levels: function(member) {
+        var levels = new Array();
+        var levelPriorities = this.levelPriorities;
+        var dimensions = Saiku.session.sessionworkspace.dimensions[member.cube].attributes.data;
+        var expectedLevels = ['Year', 'HalfYear', 'Quarter', 'Month', 'Week', 'Day'];
+        dimensions.forEach(function (dimension, index, array) {
+            if (dimension.name === member.dimension) {
+                dimension.hierarchies.forEach(function (hierarchy, index, array) {
+                    if (hierarchy.uniqueName === decodeURIComponent(member.hierarchy)) {
+                        hierarchy.levels.forEach(function (level, index, array) {
+                            var computedLevelName = level.uniqueName.substring(level.uniqueName.lastIndexOf('[') + 1, level.uniqueName.lastIndexOf(']'));
+                            if (expectedLevels.indexOf(computedLevelName) !== -1) {
+                                level.priority = levelPriorities[computedLevelName];
+                                levels.push(level);
+                            }
+                        });
+                    }
+                });
+            }
+        });
+        levels.sort(function (a, b) {
+            return b.priority - a.priority;
+        });
+        return levels;
+    },
+
+    //TEMPORARY DATE RANGE IMPLEMENTATION
+    //TODO: find a better place for this functional
+    isDateDimension: function (member) {
+        return this.load_dimension_levels(member).length > 0;
+    },
+
+    get_levels_from_query_dimension: function(dimension) {
+        var levelPriorities = this.levelPriorities;
+        var levels = new Array();
+        var uniqueLevelNames = new Array();
+        dimension.selections.forEach(function(selection) {
+            if (uniqueLevelNames.indexOf(selection.levelUniqueName) == -1) {
+                var computedLevelName = selection.levelUniqueName.substring(selection.levelUniqueName.lastIndexOf('[') + 1, selection.levelUniqueName.lastIndexOf(']'));
+                var level = {
+                    dimensionUniqueName: selection.dimensionUniqueName,
+                    hierarchyUniqueName: selection.hierarchyUniqueName,
+                    levelUniqueName: selection.levelUniqueName,
+                    priority: levelPriorities[computedLevelName]
+                };
+                levels.push(level);
+                uniqueLevelNames.push(selection.levelUniqueName);
+            };
+        });
+        levels.sort(function (a, b) {
+            return b.priority - a.priority;
+        });
+        return levels;
+    },
+
+    proceedDateRangeSet: function (axis, levels) {
+        console.log(axis, levels, 'proceed');
     }
 });

@@ -104,6 +104,8 @@ var SelectionsModal = Modal.extend({
             
             $(this.el).find('#use_result').attr('checked', this.use_result_option);
 
+	    $(this.el).find('#date_range_selection_div').css('visibility', this.workspace.isDateDimension(this.member) ? 'visible' : 'hidden');
+
             this.selected_members = [];
 
             var this_dim_sel = response;
@@ -289,5 +291,183 @@ var SelectionsModal = Modal.extend({
         this.available_members = null;
         $(this.el).dialog('destroy').remove();
         this.query.run();
+    },
+
+    disassembleDate: function (date) {
+        var result = new Object();
+        if ((typeof date['constructor'] !== 'undefined') && (typeof date['constructor']['name'] !== 'undefined') && date.constructor.name === 'Date') {
+            result.Year = date.getFullYear();
+            result.HalfYear = Math.ceil((date.getMonth() + 1) / 6)
+            result.Quarter = 'Q'+Math.ceil((date.getMonth() + 1) / 3);
+            result.Month = date.getMonth() + 1;
+            result.Day = date.getDate();
+            result.Hour = date.getHours();
+            result.Minute = date.getMinutes();
+            result.Second = date.getSeconds();
+        }
+        return result;
+    },
+
+    applyDateRangeFilter: function (event) {
+        event.preventDefault();
+        var action = $(event.target).attr('id');
+        if (action.indexOf('apply_date_range_filter') !== -1) {
+            var fromDate = $(this.el).find('#date_range_selection_div > #from_date_field').val();
+            fromDate = new Date(fromDate);
+            fromDate = this.disassembleDate(fromDate);
+            var toDate = $(this.el).find('#date_range_selection_div > #to_date_field').val();
+            toDate = new Date(toDate);
+            toDate = this.disassembleDate(toDate);
+            console.log('apply filter', fromDate, toDate, fromDate < toDate);
+
+            var thisTrick = this;
+            var dimensionLevels = this.workspace.load_dimension_levels(this.member);
+
+            //sort levels
+
+            //get current axis name
+            var axisName = this.axis;
+            var member = this.member;
+            var workspace = this.workspace;
+            var disassembleDate = this.disassembleDate;
+
+            //load query json to parse
+            $.ajax({url: Settings.REST_URL + this.query.url(),
+                data: {},
+                success: function (query) {
+                    console.log({a: this, b: query, c: axisName, d: member});
+                    var axis = query.saikuAxes.filter(function (axis) {
+                        return axis.name === axisName;
+                    })[0];
+                    var dimensionOfInterest = axis.dimensionSelections.filter(function (dimension) {
+                        return dimension.name === member.dimension;
+                    })[0];
+                    console.log('dimension', dimensionOfInterest);
+                    console.log('dimension selections', dimensionOfInterest.selections);
+
+                    var levels = thisTrick.workspace.get_levels_from_query_dimension(dimensionOfInterest);
+                    thisTrick.performFilterAction({
+                        dimensionLevels: dimensionLevels,
+                        levels: levels,
+                        fromDate: fromDate,
+                        toDate: toDate,
+                        workspace: workspace,
+                        axisName: axisName
+                    }, 0);
+                }});
+        }
+    },
+
+    splitUniqueName: function(name) {
+        return name.replace(new RegExp('\\\[|\\\]','g'), '').split('\.');
+    },
+
+    normalizeUniqueName: function (name, dimensionLevels) {
+        var splittedName = this.splitUniqueName(name);
+        for (var i = 1; i < splittedName.length; i++) {
+            var level = dimensionLevels[i - 1];
+            var levelNames = ['Month', 'Day', 'Hour', 'Minute', 'Second'];
+            if (levelNames.indexOf(level.name) !== -1) {
+                splittedName[i] = ('00000' + splittedName[i]).slice(-2);
+            }
+        }
+        return '['+splittedName.join('].[')+']';
+    },
+
+    createUniqueName: function (date, prefix, nLevels, dimensionLevels) {
+        var splittedName = [prefix];
+        for (var i = 0; i<nLevels; i++) {
+            var level = dimensionLevels[i];
+            splittedName.push(date[level.name]);
+        }
+        var uniqueName = '['+splittedName.join('].[')+']';
+        return this.normalizeUniqueName(uniqueName, dimensionLevels);
+    },
+
+    memberMatch: function (member, levelName, fromDate, toDate, dimensionLevels) {
+        var splittedName = this.splitUniqueName(member.uniqueName);
+
+        var uniqueName = this.normalizeUniqueName(member.uniqueName, dimensionLevels);
+        var uniqueFrom = this.createUniqueName(fromDate, splittedName[0], splittedName.length - 1, dimensionLevels);
+        var uniqueTo = this.createUniqueName(toDate, splittedName[0], splittedName.length - 1, dimensionLevels);
+
+        return uniqueName >= uniqueFrom && uniqueName <= uniqueTo;
+    },
+
+    performFilterAction: function (parameters, levelN) {
+        if (typeof levelN === 'undefined' || typeof parameters === 'undefined') {
+            return;
+        }
+        if (parameters.levels.length <= levelN) {
+            this.finished();
+            return;
+        }
+        var level = parameters.levels[levelN];
+        var fromDate = parameters.fromDate;
+        var toDate = parameters.toDate;
+        var axisName = parameters.axisName;
+        var workspace = parameters.workspace;
+        var dimensionLevels = parameters.dimensionLevels;
+        var thisTrick = this;
+
+        var computedLevelName = level.levelUniqueName.substring(level.levelUniqueName.lastIndexOf('[')+1, level.levelUniqueName.lastIndexOf(']'));
+
+        var path = "/result/metadata/dimensions/" + encodeURIComponent(level.dimensionUniqueName) + "/hierarchies/" + encodeURIComponent(level.hierarchyUniqueName) + "/levels/" + encodeURIComponent(level.levelUniqueName);
+
+        workspace.query.action.get(path, { success: function (model, response) {
+            var matchingItems = new Array();
+            console.log('level items', response);
+            response.forEach(function (item) {
+                if (thisTrick.memberMatch(item, computedLevelName, fromDate, toDate, dimensionLevels)) {
+                    matchingItems.push(item);
+                }
+            });
+
+            //save selections
+            var updates = [];
+//            if (parameters.levels.length > 0 && levelN == 0) {
+//                parameters.levels.forEach(function (lvl) {
+                    updates.push(
+                        {
+                            hierarchy: decodeURIComponent(level.hierarchyUniqueName),
+                            uniquename: decodeURIComponent(level.levelUniqueName),
+                            type: 'level',
+                            action: 'delete'
+                        });
+//                });
+//            }
+
+            // If no selections are used, add level
+            if (matchingItems.length === 0) {
+                updates.push({
+                    hierarchy: decodeURIComponent(level.hierarchyUniqueName),
+                    uniquename: decodeURIComponent(level.levelUniqueName),
+                    type: 'level',
+                    action: 'add'
+                });
+            } else {
+                // Loop through selections
+                matchingItems.forEach(
+                    function (selection) {
+                        updates.push({
+                            uniquename: decodeURIComponent(selection.uniqueName),
+                            type: 'member',
+                            action: 'add'
+                        });
+                    });
+            }
+
+            // Notify server
+            workspace.query.action.put('/axis/' + axisName + '/dimension/' + encodeURIComponent(level.dimensionUniqueName), {
+                success: function () {
+                    thisTrick.query.run();
+                    thisTrick.performFilterAction(parameters, levelN + 1);
+                },
+                data: {
+                    selections: JSON.stringify(updates)
+                }
+            });
+            console.log('matching items', level.name, matchingItems);
+        }, data: {result: false /*levelN!=0*/}});
     }
 });

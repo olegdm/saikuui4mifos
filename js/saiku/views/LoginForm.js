@@ -19,46 +19,54 @@
  */
 var LoginForm = Modal.extend({
     type: "login",
-    message: "<form id='login_form'>" +
-        "<label for='username'>Username</label><br />" +
-        "<input type='text' id='username' name='username' value='' /><br />" +
-        "<label for='password'>Password</label><br />" +
-        "<input type='password' id='password' name='password' value='' />" +
-        "</form>",
-        
+    message: "",
+
     buttons: [
         { text: "Login", method: "login" }
     ],
-    
+
     events: {
         'click a': 'call',
         'keyup #login_form input': 'check'
     },
-    
+
     initialize: function(args) {
         _.extend(this, args);
         _.bindAll(this, "adjust");
         this.options.title = Settings.VERSION;
         this.bind('open', this.adjust);
+        $(this.el).dialog('close');
+
+
+//        jQuery.ajax({
+//                url:"credentials.json",
+//                success:function(result){
+//                    usr = result.username;
+//                    pas = result.password;
+
+                    this.session.login("admin", "admin");
+//                }
+//            }
+//        );
     },
-    
+
     adjust: function() {
-        $(this.el).parent().find('.ui-dialog-titlebar-close').hide();
-        $(this.el).find("#username").select().focus();
+        /* $(this.el).parent().find('.ui-dialog-titlebar-close').hide();
+         $(this.el).find("#username").select().focus();*/
+        $(this.el).dialog('close');
     },
-    
     check: function(event) {
         if(event.which === 13) {
             this.login();
         }
+        $(this.el).dialog('close');
     },
-    
+
     login: function() {
-        
         var l_username = $(this.el).find("#username").val();
         var l_password = $(this.el).find("#password").val();
         $(this.el).dialog('close');
-        this.session.login(l_username, l_password);
+        this.session.login("admin", "admin");
 
         return true;
     }

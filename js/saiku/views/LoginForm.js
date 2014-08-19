@@ -37,17 +37,6 @@ var LoginForm = Modal.extend({
         this.bind('open', this.adjust);
         $(this.el).dialog('close');
 
-
-//        jQuery.ajax({
-//                url:"credentials.json",
-//                success:function(result){
-//                    usr = result.username;
-//                    pas = result.password;
-
-                    this.session.login("admin", "admin");
-//                }
-//            }
-//        );
     },
 
     adjust: function() {
@@ -63,8 +52,14 @@ var LoginForm = Modal.extend({
     },
 
     login: function() {
-        var l_username = $(this.el).find("#username").val();
-        var l_password = $(this.el).find("#password").val();
+//        jQuery.ajax({
+//                url:"credentials.json",
+//                success:function(result){
+//                    var l_username = result.username;
+//                    var l_password = result.password;
+//                }
+//            }
+//        );
         $(this.el).dialog('close');
         this.session.login("admin", "admin");
 
